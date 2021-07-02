@@ -1,7 +1,5 @@
 import json
 import asyncio
-import queue
-from threading import active_count
 from typing import Optional, Any, List, Union
 from discord import Client, Guild
 
@@ -21,7 +19,7 @@ class SuckMyTinyPenis(object):
             tables : Optional[List[DatabaseTable]] = None,
             alternative_root_name : Optional[str] = None
 
-        ):
+        ) -> None:
         """
         Creates a wacky dandy thing that has functions to help you do filesystem
         stuff, without any knowledge of knowing how to do file system stuff
@@ -67,7 +65,7 @@ class SuckMyTinyPenis(object):
         
         
 
-    def ensureRootFilesystem(self):
+    def ensureRootFilesystem(self) -> None:
         """
             Ensures that the root directory actually does exists.
             If it doesn't, it creates the new folder.
@@ -83,7 +81,7 @@ class SuckMyTinyPenis(object):
             mkdir(f'./{self.root_name}')
 
 
-    def fetchDataFromTable(self, table : Union[DatabaseTable, str], *, guild : Optional[Guild] = None):
+    def fetchDataFromTable(self, table : Union[DatabaseTable, str], *, guild : Optional[Guild] = None) -> QueryHandler:
         """
             Fetches data from a table, returns a QueryHandler.
         """
@@ -115,7 +113,7 @@ class SuckMyTinyPenis(object):
             
             
 
-    def insertDataIntoTable(self, table : str, data : list, *, guild : Optional[Guild] = None):
+    def insertDataIntoTable(self, table : str, data : list, *, guild : Optional[Guild] = None) -> QueryHandler:
         """
             Inserts data into a table
         """
