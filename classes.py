@@ -1,14 +1,3 @@
-'''
-
-    You shouldn't need to touch any function in this file that starts with an underscore ( _ ).
-    these functions are meant for backend, if you alter them, the entire thing will be altered.
-
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    This message is solely left for Hayla. I know your trying to understand this code right?
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-'''
-
 from os import mkdir
 from os.path import exists
 from funcs import createEmptyJsonFile
