@@ -1,5 +1,6 @@
 import mainhandler
 from classes import DatabaseColumn, DatabaseTable
+from enums import *
 
 
 if __name__ == "__main__":
@@ -14,7 +15,22 @@ if __name__ == "__main__":
 
     MyTables.append(t1)
 
-    mainhandler.SuckMyTinyPenis(
+    db = mainhandler.SuckMyTinyPenis(
         discord.Client(),
         tables=MyTables
     )
+
+    #db.insertDataIntoTable(
+    #    "money",
+    #    (1234567891011, 500)
+    #)
+    #db.insertDataIntoTable(
+    #    "money",
+    #    (9876543211011, 246)
+    #)
+
+    data = db.fetchDataFromTable("money")
+    user_data = data.AdvancedFilter("money", lambda m: m > 400 or m < 300)
+    user_data.Update("money", 10, update_type = DatabaseUpdateType.INCREMENT)
+
+    print(user_data)
