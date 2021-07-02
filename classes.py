@@ -246,7 +246,7 @@ class QueryHandler(object):
         # Return the query handler
         return QueryHandler(
             table = self.table,
-            results = [i for i in self.results if func(i)]
+            results = [i for i in self.results if func(i[specific_column.name])]
         )
 
     def Update(self, column_name : str, value : Any, overwrite_file : bool = False):
