@@ -12,14 +12,14 @@
 from os import mkdir
 from os.path import exists
 from funcs import createEmptyJsonFile
-from typing import Any, Dict, Optional, Union, List
+from typing import Any, Dict, Iterable, Optional, Union, List
 import json
 from enum import Enum
 from discord import Guild
 
 
 class DatabaseTable(object):
-    def __init__(self, name : str, *, perGuild : bool = False):
+    def __init__(self, name : str, *, perGuild : bool = False) -> None:
         """
             Our magic table stuff. This stuff will basically dictate the actual file, and not the data in it.
         """
@@ -31,14 +31,14 @@ class DatabaseTable(object):
         self._database = None
 
     @property
-    def fileName(self):
+    def fileName(self) -> str:
         if not self.per_guild: # If it's not supposed to be a guild-specific filesystem
             return self.name.replace(' ', '_') + ".json"
         else: # If it is supposed to be guild-specific
             return self.name.replace(' ', '_')
 
     @property
-    def fullFilePath(self):
+    def fullFilePath(self) -> str:
         """
             Returns the entire path of the file
         """
@@ -48,14 +48,14 @@ class DatabaseTable(object):
         return f"./{self._database.root_name}/{self.fileName}"
 
     @property
-    def _columnTypeReference(self):
+    def _columnTypeReference(self) -> List[type]:
         """
             A list which has all of the column types in it.
         """
         return [col.type for col in self.columns]
 
     @property
-    def _columnStrList(self):
+    def _columnStrList(self) -> List[str]:
         """
             Just returns a list of all of the columns' names.
         """
@@ -89,7 +89,7 @@ class DatabaseTable(object):
                 return column
         return None
 
-    def _init_post_database_assign(self):
+    def _init_post_database_assign(self) -> None:
         """
             A function which is called post database assign.
             This is where the program ensures the folders and files exist.
@@ -106,7 +106,7 @@ class DatabaseTable(object):
 
         return QueryHandler(self, data)
 
-    def updateTableData(self, new_data : List[dict]):
+    def updateTableData(self, new_data : List[dict]) -> None:
         
         # Dump new data into file
         with open(self.fullFilePath, 'w+') as j:
@@ -126,7 +126,7 @@ class DatabaseColumn(object):
 
         self._database = None
 
-    def _initialize_with_database(self, database):
+    def _initialize_with_database(self, database) -> None:
         """
             This function is ran immediately after the database acknowledges that it has this column.
             This is basically reserved for any sorting issues I have to fix later on.
@@ -135,7 +135,7 @@ class DatabaseColumn(object):
         self._database = database
         return
 
-    def _check_value(self, value):
+    def _check_value(self, value) -> bool:
         """
             Checks to see if the value provided is one that abides by the type of this column.
         """
@@ -148,7 +148,7 @@ class QueryHandler(object):
         and tons of queries.
     """
 
-    def __init__(self, table : DatabaseTable, results):
+    def __init__(self, table : DatabaseTable, results) -> None:
         
         self.table = table
         self.columns = self.table.columns
@@ -156,27 +156,27 @@ class QueryHandler(object):
         self.results = results
         self.__index_all_results() # Basically allows us to tell apart all of the data
  
-    def __index_all_results(self):
+    def __index_all_results(self) -> None:
         
         for index, item in enumerate(self.results):
             # print(item, type(item), sep="\t") # Debug purposes
             item["__META_DB_INDEX"] = index
 
-    def __get_unindexed_all_results(self):
+    def __get_unindexed_all_results(self) -> List[dict]:
         x = self.results
         for item in x:
             del item['__META_DB_INDEX']
         return x
 
-    def __unindex_this(self, d : List[Dict]):
+    def __unindex_this(self, d : List[Dict]) -> List[dict]:
         for item in d:
             del item['__META_DB_INDEX']
         return d
 
-    def __fetch_all_item_indexes(self):
+    def __fetch_all_item_indexes(self) -> Iterable:
         return [k['__META_DB_INDEX'] for k in self.results]
 
-    def All(self):
+    def All(self) -> List[dict]:
         """
             Just returns all of the results as a dict
         """
@@ -186,7 +186,7 @@ class QueryHandler(object):
 
         return self.__get_unindexed_all_results()
 
-    def First(self):
+    def First(self) -> dict:
         """
             Returns the first value in the database, this would also be the oldest value.
         """
