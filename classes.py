@@ -12,8 +12,10 @@
 from os import mkdir
 from os.path import exists
 from funcs import createEmptyJsonFile
-from typing import Any, Type
+from typing import Any, Dict, Optional, Union, List
 import json
+from enum import Enum
+from discord import Guild
 
 
 class DatabaseTable(object):
@@ -40,6 +42,9 @@ class DatabaseTable(object):
         """
             Returns the entire path of the file
         """
+        if self.per_guild:
+            return f"./{self._database.root_name}/{self.fileName}/%(guildid)s.json"
+
         return f"./{self._database.root_name}/{self.fileName}"
 
     @property
@@ -48,6 +53,13 @@ class DatabaseTable(object):
             A list which has all of the column types in it.
         """
         return [col.type for col in self.columns]
+
+    @property
+    def _columnStrList(self):
+        """
+            Just returns a list of all of the columns' names.
+        """
+        return [i.name for i in self.columns]
 
     def addColumn(self, name, type):
         """
@@ -94,6 +106,17 @@ class DatabaseTable(object):
 
         return QueryHandler(self, data)
 
+    def updateTableData(self, new_data : List[dict]):
+        
+        # Dump new data into file
+        with open(self.fullFilePath, 'w+') as j:
+            json.dump(
+                new_data,
+                j,
+                indent = 4
+            )
+
+
 class DatabaseColumn(object):
     def __init__(self, table : DatabaseTable, columnId : int, name : str, type : type):
         self.name = name.lower() # We aint about that gay ass uppercase name shit
@@ -131,18 +154,48 @@ class QueryHandler(object):
         self.columns = self.table.columns
 
         self.results = results
+        self.__index_all_results() # Basically allows us to tell apart all of the data
+ 
+    def __index_all_results(self):
+        
+        for index, item in enumerate(self.results):
+            # print(item, type(item), sep="\t") # Debug purposes
+            item["__META_DB_INDEX"] = index
+
+    def __get_unindexed_all_results(self):
+        x = self.results
+        for item in x:
+            del item['__META_DB_INDEX']
+        return x
+
+    def __unindex_this(self, d : List[Dict]):
+        for item in d:
+            del item['__META_DB_INDEX']
+        return d
+
+    def __fetch_all_item_indexes(self):
+        return [k['__META_DB_INDEX'] for k in self.results]
 
     def All(self):
         """
             Just returns all of the results as a dict
         """
-        return self.results
+        # Default return if nothing matches the query
+        if len(self.results) < 1:
+            return []
+
+        return self.__get_unindexed_all_results()
 
     def First(self):
         """
             Returns the first value in the database, this would also be the oldest value.
         """
-        return self.results[0]
+        # Default return if nothing matches the query
+        if len(self.results) < 1:
+            return None
+
+        unind = self.__get_unindexed_all_results()
+        return unind[0]
 
     def Seek(self, column_name : str, value : Any):
         """
@@ -166,3 +219,93 @@ class QueryHandler(object):
             raise TypeError("Type provided for search query is not corresponding type to column. Column type is `%s`, you provided value with type: `%s`" % (specific_column.type, type(value)))
 
         return QueryHandler(self.table, [res for res in self.results if res[specific_column.name.lower()] == value])
+
+    def AdvancedFilter(self, column_name : str, func : callable):
+        """
+            This filter will basically return all the values that are true based on the `func` argument.
+
+            Only one argument will be provided to the function. Which will be the column value for the row.
+            This function WILL be ran for EVERY row you have in the database. So please dont make it too cpu-intensive.
+
+            This function returns a new QueryHandler instance with all of the results that are true based on the function.
+        """
+        
+        # This var will store the DatabaseColumn object
+        specific_column = None
+
+        # Searching for our column
+        for c in self.columns:
+            if c.name.lower() == column_name.lower():
+                specific_column = c
+                break
+
+        # Return an error if the column doesnt exist
+        if specific_column is None:
+            raise ValueError("Column `%s` does not exist" % column_name.lower())
+
+        # Return the query handler
+        return QueryHandler(
+            table = self.table,
+            results = [i for i in self.results if func(i)]
+        )
+
+    def Update(self, column_name : str, value : Any, overwrite_file : bool = False):
+        """
+            Sets the value for all data in a specific column which also resides in `self.results`.
+
+            Meaning that anything that you have in this specific object, will have a column updated
+            when this function is used.
+
+            This function returns this same QueryHandler object, but the results are updated
+            to fit the new updates made to them.
+        """
+
+        # This var will store the DatabaseColumn object
+        specific_column = None
+
+        # Searching for our column
+        for c in self.columns:
+            if c.name.lower() == column_name.lower():
+                specific_column = c
+                break
+
+        # Return an error if the column doesnt exist
+        if specific_column is None:
+            raise ValueError("Column `%s` does not exist" % column_name.lower())
+
+        # Then we check and see if the value that is to be updated is actually of the type that the column requests.
+        if not specific_column._check_value(value):
+            raise TypeError("Type provided for search query is not corresponding type to column. Column type is `%s`, you provided value with type: `%s`" % (specific_column.type, type(value)))
+
+        new_data = self.results
+        # Now we update each result
+        for result in new_data:
+            result[specific_column.name.lower()] = value
+        
+        # Now we fetch old data for comparison
+        old_data = self.table.fetchAllData()
+
+        # Attempting to merge the data
+        merged_data = []
+        new_data_indexes = self.__fetch_all_item_indexes()
+
+        # Allocating spots for new data in old data's spaces
+        for row in old_data:
+            # Keep the old data if no new data is created
+            if row['__META_DB_INDEX'] not in new_data_indexes:
+                merged_data.append(row)
+
+        # Actually doing the merge
+        merged_data.extend(new_data)
+
+        # Sort the indexes so it stays in order
+        merged_data.sort(
+            key = lambda x: x['__META_DB_INDEX'],
+            reverse=False
+        )
+
+        unindexed_merged = self.__unindex_this(merged_data)
+        self.table.updateTableData(unindexed_merged)
+
+        return QueryHandler(self.table, unindexed_merged)
+

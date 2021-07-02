@@ -1,12 +1,16 @@
 import json
 import asyncio
-from typing import Optional, Any, List
+import queue
+from threading import active_count
+from typing import Optional, Any, List, Union
 from discord import Client, Guild
 
 from os.path import exists
 from os import mkdir
 
-from classes import DatabaseColumn, DatabaseTable
+from classes import DatabaseColumn, DatabaseTable, QueryHandler
+
+from queue import Queue
 
 class SuckMyTinyPenis(object):
     def __init__(
@@ -60,7 +64,8 @@ class SuckMyTinyPenis(object):
 
         # Setting up a simple reference for when we actually fetch stuff from this database
         self.tableRef = {table.name : table for table in self._raw_table_data}
-
+        
+        
 
     def ensureRootFilesystem(self):
         """
@@ -78,38 +83,86 @@ class SuckMyTinyPenis(object):
             mkdir(f'./{self.root_name}')
 
 
-    def fetchDataFromTable(self, table : str, *, guild : Optional[Guild] = None):
+    def fetchDataFromTable(self, table : Union[DatabaseTable, str], *, guild : Optional[Guild] = None):
         """
             Fetches data from a table, returns a QueryHandler.
         """
 
-        # Return an error if the table doesn't even exist.
-        if table.lower() not in self.tableRef.keys():
-            raise ValueError("The table name provided is not in the reference, maybe you spelt it wrong!")
-            return
+        if not isinstance(table, DatabaseTable):
 
-        table = self.tableRef[table.lower()]
+            # Return an error if the table doesn't even exist.
+            if table.lower() not in self.tableRef.keys():
+                raise ValueError("The table name provided is not in the reference, maybe you spelt it wrong!")
+                return
+
+            table = self.tableRef[table.lower()]
 
         if table.per_guild:
-            with open()
+            
+            if guild is None:
+                raise ValueError("No guild provided for guild-specific tableset. Make sure you actually apply that kwarg.")
 
-    def insertDataIntoTable(self, table : str, data : list):
+            # Opening the specific guild file
+            with open(table.fullFilePath + "{guild.id}.json") as j:
+                data = json.load(j)
+
+        else:
+
+            with open(table.fullFilePath) as j:
+                data = json.load(j)
+
+        return QueryHandler(table=table, results=data)
+            
+            
+
+    def insertDataIntoTable(self, table : str, data : list, *, guild : Optional[Guild] = None):
         """
             Inserts data into a table
         """
         
-        # Ensure that the table actually exists
-        if table.lower() not in self.tableRef.keys():
-            raise ValueError("The table name provided is not in the reference, maybe you spelt it wrong!")
-            return
+        # Allowing the use of actual table objects in case anybody would want to do that
+        if not isinstance(table, DatabaseTable):
 
-        
+            # Return an error if the table doesn't even exist.
+            if table.lower() not in self.tableRef.keys():
+                raise ValueError("The table name provided is not in the reference, maybe you spelt it wrong!")
+                return
 
-        
-        
+            table = self.tableRef[table.lower()]
 
-        
+        # Ensuring the user provided a proper list of shit to insert
+        if not len(data) == len(table.columns):
+            raise ValueError(f"Insertion error occured when inserting {len(data)} values into database `{table.name}`, but it only supports {len(table.columns)}")
+
+        # Ensure that the types are correct for all values as well.
+        for i, d in enumerate(data, start=0):
+            
+            if not isinstance(d, table._columnTypeReference[i]):
+                raise ValueError(f"Value `{d}` is of type `{type(d)}` but column `{table.columns[i].name}` only supports type `{table._columnTypeReference[i]}`")
 
 
+        # Using our own method to fetch that juicy data
+        tableData = self.fetchDataFromTable(table=table, guild=guild)
+        tableData = tableData.All() # Switching over to raw data
 
 
+        # Putting the data that is going to be inserted into its own dictionary
+        new_data = {}
+        for i, col in enumerate(table._columnStrList, start=0):
+            new_data[col] = data[i]
+
+        # Actually append the new data
+        tableData.append(new_data)
+
+        # Actually updating the file
+        if table.per_guild: # Route for guild-specific data
+
+            with open(table.fullFilePath + f"{guild.id}.json", mode="w") as j:
+                json.dump(tableData, j, indent=4)
+
+        else: # Route for global data
+
+            with open(table.fullFilePath, mode="w") as j:
+                json.dump(tableData, j, indent=4)
+
+        return QueryHandler(table, tableData) # Returns a QueryHandler with new data because why not
