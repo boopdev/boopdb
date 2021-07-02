@@ -14,8 +14,9 @@ from os.path import exists
 from funcs import createEmptyJsonFile
 from typing import Any, Dict, Iterable, Optional, Union, List
 import json
-from enum import Enum
 from discord import Guild
+
+from enums import DatabaseUpdateType
 
 
 class DatabaseTable(object):
@@ -249,7 +250,7 @@ class QueryHandler(object):
             results = [i for i in self.results if func(i[specific_column.name])]
         )
 
-    def Update(self, column_name : str, value : Any, overwrite_file : bool = False):
+    def Update(self, column_name : str, value : Any, update_type : DatabaseUpdateType = DatabaseUpdateType.SET, overwrite_file : bool = False):
         """
             Sets the value for all data in a specific column which also resides in `self.results`.
 
@@ -280,8 +281,41 @@ class QueryHandler(object):
         new_data = self.results
         # Now we update each result
         for result in new_data:
-            result[specific_column.name.lower()] = value
-        
+            
+            # Setting the value has no requirements
+            if update_type == DatabaseUpdateType.SET:
+                result[specific_column.name.lower()] = value
+
+
+            # Incrementing the value of the column requires additional checks to ensure both the value provided, and the column's type, can be added to
+            elif update_type == DatabaseUpdateType.INCREMENT:
+                
+                # Making sure you can actually add to the item
+                if not hasattr(result[specific_column.name.lower()], "__add__"):
+                    raise TypeError(f"Error when updating value `{specific_column.name.lower()}`. Type `{type(result[specific_column.name.lower()])}` has no built-in adding feature.")
+
+                # Checking the value provided to make sure you can add with that too
+                if not hasattr(value, "__add__"):
+                    raise TypeError(f"Error while updating value `{specific_column.name.lower()}`. The value you provided of type `{type(value)}` is not one that can be added to.")
+
+                # Actually adding to the value
+                result[specific_column.name.lower()] += value
+
+            # Decrementing the value of the column also requires additional checks.
+            elif update_type == DatabaseUpdateType.DECREMENT:
+                
+                # Making sure you can actually subtract from the item
+                if not hasattr(result[specific_column.name.lower()], "__sub__"):
+                    raise TypeError(f"Error when updating value `{specific_column.name.lower()}`. Type `{type(result[specific_column.name.lower()])}` has no built-in subtraction feature.")
+
+                # Checking the value provided to make sure you can actually subtract from it.
+                if not hasattr(value, "__sub__"):
+                    raise TypeError(f"Error while updating value `{specific_column.name.lower()}`. The value you provided of type `{type(value)}` is not one that can be subtracted from.")
+
+                # Actually decrementing the value.
+                result[specific_column.name.lower()] -= value
+
+
         # Now we fetch old data for comparison
         old_data = self.table.fetchAllData()
 
