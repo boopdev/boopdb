@@ -6,7 +6,7 @@ from discord import Client, Guild
 from os.path import exists
 from os import mkdir
 
-from classes import DatabaseColumn, DatabaseTable, QueryHandler
+from .classes import DatabaseColumn, DatabaseTable, QueryHandler
 
 from queue import Queue
 
