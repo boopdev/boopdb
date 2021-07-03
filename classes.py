@@ -4,6 +4,7 @@ from .funcs import createEmptyJsonFile
 from typing import Any, Dict, Iterable, Optional, Union, List
 import json
 from discord import Guild
+import copy
 
 from .enums import DatabaseUpdateType
 
@@ -147,18 +148,23 @@ class QueryHandler(object):
         self.__index_all_results() # Basically allows us to tell apart all of the data
  
     def __index_all_results(self) -> None:
+        if len(self.results) > 0:
+            if "__META_DB_INDEX" in self.results[0].keys():
+                print("already was indexed")
+                return
         
         for index, item in enumerate(self.results):
             # print(item, type(item), sep="\t") # Debug purposes
             item["__META_DB_INDEX"] = index
 
     def __get_unindexed_all_results(self) -> List[dict]:
-        x = self.results
+        x = copy.deepcopy(self.results)
         for item in x:
             del item['__META_DB_INDEX']
         return x
 
     def __unindex_this(self, d : List[Dict]) -> List[dict]:
+        d = copy.deepcopy(d)
         for item in d:
             del item['__META_DB_INDEX']
         return d
