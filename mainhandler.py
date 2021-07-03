@@ -8,7 +8,7 @@ from os import mkdir
 
 from .classes import DatabaseColumn, DatabaseTable, QueryHandler
 
-class SuckMyTinyPenis(object):
+class boopDB(object):
     def __init__(
             self, 
             *,
