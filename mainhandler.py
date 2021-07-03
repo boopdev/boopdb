@@ -13,9 +13,8 @@ from queue import Queue
 class SuckMyTinyPenis(object):
     def __init__(
             self, 
-            client : Client,
             *,
-            loop : Optional[asyncio.BaseEventLoop] = None,
+            client : Optional[Client] = None,
             tables : Optional[List[DatabaseTable]] = None,
             alternative_root_name : Optional[str] = None
 
@@ -27,17 +26,6 @@ class SuckMyTinyPenis(object):
 
         # First we assign basic data to this object
         self.client = client
-
-
-
-
-        # Ensure that this thing has its loop properly set up, in case for whatever reason the user
-        # would ever want to provide an alternative event loop.
-        if loop is None:
-            self.loop = self.client.loop # Default to client loop if no loop is provided
-        else:
-            self.loop = loop
-
 
 
 
