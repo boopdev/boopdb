@@ -1,14 +1,12 @@
 import json
 import asyncio
-from typing import Optional, Any, List, Union
+from typing import Optional, List, Union
 from discord import Client, Guild
 
 from os.path import exists
 from os import mkdir
 
 from .classes import DatabaseColumn, DatabaseTable, QueryHandler
-
-from queue import Queue
 
 class SuckMyTinyPenis(object):
     def __init__(
