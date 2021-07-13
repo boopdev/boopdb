@@ -86,8 +86,16 @@ class boopDB(object):
             if guild is None:
                 raise ValueError("No guild provided for guild-specific tableset. Make sure you actually apply that kwarg.")
 
+
+            # If the guild file doesn't exist, make it exist
+            if not exists(table.fullFilePath % {"guildid" : guild.id}):
+
+                with open(table.fullFilePath % {"guildid" : guild.id}, mode="w+") as f:
+                    json.dump([], f)
+                
+
             # Opening the specific guild file
-            with open(table.fullFilePath + "{guild.id}.json") as j:
+            with open(table.fullFilePath % {"guildid" : guild.id}) as j:
                 data = json.load(j)
 
         else:
@@ -123,7 +131,6 @@ class boopDB(object):
             
             if not isinstance(d, table._columnTypeReference[i]):
                 raise ValueError(f"Value `{d}` is of type `{type(d)}` but column `{table.columns[i].name}` only supports type `{table._columnTypeReference[i]}`")
-
 
         # Using our own method to fetch that juicy data
         tableData = self.fetchDataFromTable(table=table, guild=guild)

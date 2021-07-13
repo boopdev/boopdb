@@ -1,6 +1,5 @@
 from os import mkdir
 from os.path import exists
-from .funcs import createEmptyJsonFile
 from typing import Any, Dict, Iterable, Optional, Union, List
 import json
 from discord import Guild
@@ -87,9 +86,16 @@ class DatabaseTable(object):
         """
 
         if self.per_guild:
-            mkdir(self.fullFilePath)
+
+            if not exists(f"./{self._database.root_name}/{self.fileName}/"):
+                mkdir(f"./{self._database.root_name}/{self.fileName}/")
         else:
-            createEmptyJsonFile(self.fullFilePath)
+
+            if not exists(self.fullFilePath):   
+
+                with open(self.fullFilePath, 'w+') as j:
+                    json.dump([], j)
+                    j.close()
 
     def fetchAllData(self):
         with open(self.fullFilePath, 'r') as js:
