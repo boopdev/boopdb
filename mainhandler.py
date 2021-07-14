@@ -89,8 +89,8 @@ class boopDB(object):
 
             # If the guild file doesn't exist, make it exist
             if not exists(table.fullFilePath % {"guildid" : guild.id}):
-
                 with open(table.fullFilePath % {"guildid" : guild.id}, mode="w+") as f:
+                    print(f.__path__)
                     json.dump([], f)
                 
 
@@ -103,7 +103,7 @@ class boopDB(object):
             with open(table.fullFilePath) as j:
                 data = json.load(j)
 
-        return QueryHandler(table=table, results=data)
+        return QueryHandler(table=table, results=data, guild=guild)
             
             
 
@@ -148,7 +148,7 @@ class boopDB(object):
         # Actually updating the file
         if table.per_guild: # Route for guild-specific data
 
-            with open(table.fullFilePath + f"{guild.id}.json", mode="w") as j:
+            with open(table.fullFilePath % {"guildid" : guild.id}, "w") as j:
                 json.dump(tableData, j, indent=4)
 
         else: # Route for global data
@@ -156,4 +156,4 @@ class boopDB(object):
             with open(table.fullFilePath, mode="w") as j:
                 json.dump(tableData, j, indent=4)
 
-        return QueryHandler(table, tableData) # Returns a QueryHandler with new data because why not
+        return QueryHandler(table, tableData, guild=guild) # Returns a QueryHandler with new data because why not

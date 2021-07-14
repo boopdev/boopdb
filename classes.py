@@ -97,11 +97,18 @@ class DatabaseTable(object):
                     json.dump([], j)
                     j.close()
 
-    def fetchAllData(self):
-        with open(self.fullFilePath, 'r') as js:
-            data = json.load(js)
+    def fetchAllData(self, guild : Guild = None):
+        if guild == None:
 
-        return QueryHandler(self, data)
+            with open(self.fullFilePath, 'r') as js:
+                data = json.load(js)
+
+        else:
+
+            with open(self.fullFilePath % {"guildid" : guild.id}) as js:
+                data = json.load(js)
+
+        return QueryHandler(self, data, guild)
 
     def updateTableData(self, new_data : List[dict]) -> None:
         
@@ -145,10 +152,12 @@ class QueryHandler(object):
         and tons of queries.
     """
 
-    def __init__(self, table : DatabaseTable, results) -> None:
+    def __init__(self, table : DatabaseTable, results, guild : Guild) -> None:
         
         self.table = table
         self.columns = self.table.columns
+
+        self.guild = Guild
 
         self.results = results
         self.__index_all_results() # Basically allows us to tell apart all of the data
@@ -220,7 +229,7 @@ class QueryHandler(object):
         if not specific_column._check_value(value):
             raise TypeError("Type provided for search query is not corresponding type to column. Column type is `%s`, you provided value with type: `%s`" % (specific_column.type, type(value)))
 
-        return QueryHandler(self.table, [res for res in self.results if res[specific_column.name.lower()] == value])
+        return QueryHandler(self.table, [res for res in self.results if res[specific_column.name.lower()] == value], guild=self.guild)
 
     def AdvancedFilter(self, column_name : str, func : callable):
         """
@@ -248,7 +257,8 @@ class QueryHandler(object):
         # Return the query handler
         return QueryHandler(
             table = self.table,
-            results = [i for i in self.results if func(i[specific_column.name])]
+            results = [i for i in self.results if func(i[specific_column.name])],
+            guild=self.guild
         )
 
     def Update(self, column_name : str, value : Any, update_type : DatabaseUpdateType = DatabaseUpdateType.SET, overwrite_file : bool = False):
@@ -318,7 +328,7 @@ class QueryHandler(object):
 
 
         # Now we fetch old data for comparison
-        old_data = self.table.fetchAllData()
+        old_data = self.table.fetchAllData(self.guild)
 
         # Attempting to merge the data
         merged_data = []
@@ -342,5 +352,5 @@ class QueryHandler(object):
         unindexed_merged = self.__unindex_this(merged_data)
         self.table.updateTableData(unindexed_merged)
 
-        return QueryHandler(self.table, unindexed_merged)
+        return QueryHandler(self.table, unindexed_merged, self.guild)
 
