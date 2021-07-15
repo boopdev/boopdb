@@ -1,12 +1,14 @@
 from os import mkdir
-from os.path import exists
+from os.path import exists, splitext
 from typing import Any, Dict, Iterable, Optional, Union, List
 import json
 from discord import Guild
 import copy
+import glob
 
-from .enums import DatabaseUpdateType
+from .enums import DatabaseUpdateType, SortBy
 
+import logging
 
 class DatabaseTable(object):
     def __init__(self, name : str, *, perGuild : bool = False) -> None:
@@ -51,7 +53,20 @@ class DatabaseTable(object):
         """
         return [i.name for i in self.columns]
 
-    def addColumn(self, name, type):
+    def _fetchAllParticipatingGuilds(self) -> List[int]:
+        """
+            Returns a list of guild ids who are using this table if it is per-guild.
+            If the table is not per-guild this will return an empty list.
+
+            This is purely based on filenames.
+        """
+        if not self.per_guild:
+            return []
+
+        g = glob.glob(f"./{self._database.root_name}/{self.fileName}/*.json")
+        return list(map(lambda i: int(splitext(i)[0][-18:]), g))
+
+    def addColumn(self, name, type, *, default_value = None):
         """
             Creates a database column through a specific
         """
@@ -61,11 +76,14 @@ class DatabaseTable(object):
             table=self,
             columnId=len(self.columns),
             name=name,
-            type=type
+            type=type,
+            default_value=default_value
         )
 
+        col.columnId = len(self.columns)
         # Then append that to the list.
         self.columns.append(col)
+        
 
         # idk then return the column or something?
         return col
@@ -84,11 +102,13 @@ class DatabaseTable(object):
             A function which is called post database assign.
             This is where the program ensures the folders and files exist.
         """
+        self._database.logger.info("Ensuring directories exist for table `%s`" % self.name)
 
         if self.per_guild:
 
             if not exists(f"./{self._database.root_name}/{self.fileName}/"):
                 mkdir(f"./{self._database.root_name}/{self.fileName}/")
+                self._database.logger.info("Table `%s` is per-guild, created directory for per-guild data storage." % self.name)
         else:
 
             if not exists(self.fullFilePath):   
@@ -97,7 +117,11 @@ class DatabaseTable(object):
                     json.dump([], j)
                     j.close()
 
-    def fetchAllData(self, guild : Guild = None):
+                self._database.logger.info("Table `%s` had no json file, created a new empty one for you <3" % self.name)
+
+        self._database.logger.info("Assigned table `%s` with %s columns (per-guild: %s)" % (self.name, len(self.columns), self.per_guild))
+
+    def fetchAllData(self, guild : Guild = None, *, RAW_ONLY : bool = False):
         if guild == None:
 
             with open(self.fullFilePath, 'r') as js:
@@ -108,24 +132,37 @@ class DatabaseTable(object):
             with open(self.fullFilePath % {"guildid" : guild.id}) as js:
                 data = json.load(js)
 
+        if RAW_ONLY:
+            return data
+
         return QueryHandler(self, data, guild)
 
-    def updateTableData(self, new_data : List[dict]) -> None:
+    def updateTableData(self, new_data : List[dict], guild : Guild = None) -> None:
         
         # Dump new data into file
-        with open(self.fullFilePath, 'w+') as j:
+        if guild is None:
+            with open(self.fullFilePath, 'w+') as j:
+                json.dump(
+                    new_data,
+                    j,
+                    indent = 4
+                )
+            return
+
+        with open(self.fullFilePath % {"guildid" : guild.id}, 'w+') as j:
             json.dump(
                 new_data,
                 j,
-                indent = 4
+                indent=4
             )
 
 
 class DatabaseColumn(object):
-    def __init__(self, table : DatabaseTable, columnId : int, name : str, type : type):
+    def __init__(self, table : DatabaseTable, columnId : int, name : str, type : type, default_value : Any = None):
         self.name = name.lower() # We aint about that gay ass uppercase name shit
         self.type = type
         self.columnId = 0
+        self.default_value = default_value
 
 
         self._database = None
@@ -197,16 +234,27 @@ class QueryHandler(object):
 
         return self.__get_unindexed_all_results()
 
-    def First(self) -> dict:
+    def First(self, n : int = 1) -> Union[dict, list]:
         """
-            Returns the first value in the database, this would also be the oldest value.
+            Returns the first `n` items from the results.
+            Default value is 1, and when `n` is 1 the function will
+            return it as a dict, otherwise it will return it as a list.
+
+            If the size of the result set is smaller than `n`, this function
+            will return the equivalent of calling QueryHandler.All()
         """
         # Default return if nothing matches the query
-        if len(self.results) < 1:
-            return None
 
-        unind = self.__get_unindexed_all_results()
-        return unind[0]
+        if len(self.results) < 1:
+                return None
+
+        if n > 1:  
+            unind = self.__get_unindexed_all_results()[:n]
+
+        else:
+            unind = self.__get_unindexed_all_results()[0]
+
+        return unind
 
     def Seek(self, column_name : str, value : Any):
         """
@@ -292,6 +340,7 @@ class QueryHandler(object):
         new_data = self.results
         # Now we update each result
         for result in new_data:
+            self.table._database.logger.info("Updating data in table %s. (Setting: %s) Value=%s" % (self.table.name, update_type.name, value))
             
             # Setting the value has no requirements
             if update_type == DatabaseUpdateType.SET:
@@ -353,4 +402,13 @@ class QueryHandler(object):
         self.table.updateTableData(unindexed_merged)
 
         return QueryHandler(self.table, unindexed_merged, self.guild)
+
+    def Sort(self, column_name : str, sort_type : SortBy = SortBy.ASCENDING):
+        """
+            Sorts the data by a column, By default it sorts by ascending.
+            Setting `sort_type` to SortBy.DESCENDING will obviously set it to
+            descending
+        """
+
+        return QueryHandler(self.table, sorted(self.results, reverse=bool(sort_type.value)), self.guild)
 

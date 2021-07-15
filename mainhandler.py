@@ -2,13 +2,40 @@ import json
 import asyncio
 from typing import Optional, List, Union
 from discord import Client, Guild
+import logging
 
 from os.path import exists
 from os import mkdir
 
 from .classes import DatabaseColumn, DatabaseTable, QueryHandler
+from .merges import SchemaHandler
+
+boopdb_logging_formatting = logging.Formatter('%(asctime)s | %(name)s> %(levelname)s %(message)s')
 
 class boopDB(object):
+
+    def logging_get_handler(self):
+        """
+            Gets the logging handler
+        """
+        handler = logging.FileHandler("boopdb.log", mode="w", encoding="utf-8")
+        handler.setFormatter(boopdb_logging_formatting)
+
+        return handler
+
+    def setup_logging(self):
+        """
+            Sets up logging for this system.
+        """
+
+        logger = logging.getLogger("BOOPDB")
+        logger.setLevel(logging.INFO)
+        logger.addHandler(self.logging_get_handler())
+
+        return logger
+
+
+
     def __init__(
             self, 
             *,
@@ -26,6 +53,10 @@ class boopDB(object):
         self.client = client
 
 
+        self.logger = self.setup_logging()
+        print(self.logger, type(self.logger), sep="\t")
+        self.logger.info("Setting things up!")
+
 
         # Allowing a user to set a custom root name
         self.root_name = alternative_root_name
@@ -36,6 +67,8 @@ class boopDB(object):
         # After we set the root name, we ensure that that file directory exists.
         self.ensureRootFilesystem()
 
+
+        self.logger.info("Set database root_name to: %s" % self.root_name)
 
 
         # Oh boy, here we go.
@@ -48,6 +81,10 @@ class boopDB(object):
 
         # Setting up a simple reference for when we actually fetch stuff from this database
         self.tableRef = {table.name : table for table in self._raw_table_data}
+
+        self.logger.info("Found %s tables" % len(self.tableRef))
+
+        SchemaHandler(self).compare_schema()
         
         
 
@@ -60,7 +97,7 @@ class boopDB(object):
 
         if exists(f'./{self.root_name}/'):
             # The sickest backflip you've ever seen.
-            print("Doing an epic backflip.")
+            self.logger.critical("Doing an epic backflip")
 
         else:
             # Creating the directory if it doesnt exist.
@@ -89,8 +126,9 @@ class boopDB(object):
 
             # If the guild file doesn't exist, make it exist
             if not exists(table.fullFilePath % {"guildid" : guild.id}):
+
+                self.logger.info("Creating guild file in table %s for guild: %s" % (table.name, guild.name))
                 with open(table.fullFilePath % {"guildid" : guild.id}, mode="w+") as f:
-                    print(f.__path__)
                     json.dump([], f)
                 
 
