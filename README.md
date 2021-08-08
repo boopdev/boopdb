@@ -2,7 +2,7 @@
 boopdb is a file manager developed specifically for those who don't want to learn all of that wacky json file nonsense. Inspired by SQLAlchemy's ORM, boopDB literally just handles the creation, reading, and updating of any files.
 ##### boopDB is also specifically made for discord applications.
 ---
-In order to use this package you want to call the mainhandler class, which is appropriately named `SuckMyTinyPenis`. 
+In order to use this package you want to call the mainhandler class, which is appropriately named `boopDB`. 
 ```py
 import discord
 import boopdb
